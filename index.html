@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1220">
+<title>VIX Monitor</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b1220;color:#fff;font-family:Arial,sans-serif}
+.container{max-width:650px;margin:auto;padding:20px}
+h1{margin:8px 0 4px;font-size:28px}
+.sub{color:#94a3b8;margin-bottom:20px}
+.card{background:#151f32;border-radius:18px;padding:20px;margin-bottom:14px}
+.label{color:#94a3b8;font-size:14px}
+.value{font-size:44px;font-weight:700;margin:7px 0}
+.status{font-size:15px}
+.date{color:#64748b;font-size:12px;margin-top:7px}
+.ratio{font-size:32px;font-weight:700;margin-top:8px}
+canvas{width:100%;height:240px;background:#0d1728;border-radius:12px;margin-top:12px}
+.legend{font-size:13px;color:#94a3b8;margin-top:8px}
+.update{color:#64748b;font-size:12px;margin-top:18px}
+button{border:0;border-radius:10px;padding:10px 14px;background:#26344d;color:white;margin-right:6px}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>VIX Monitor</h1>
+<div class="sub">VIX / VXN Market Monitor</div>
+
+<div class="card">
+<div class="label">VIX</div>
+<div class="value" id="vix">--</div>
+<div class="status" id="vixStatus">读取中...</div>
+<div class="date" id="vixDate"></div>
+</div>
+
+<div class="card">
+<div class="label">VXN</div>
+<div class="value" id="vxn">--</div>
+<div class="status" id="vxnStatus">读取中...</div>
+<div class="date" id="vxnDate"></div>
+</div>
+
+<div class="card">
+<div class="label">VXN / VIX</div>
+<div class="ratio" id="ratio">--</div>
+<div class="status">Nasdaq-100 波动 / S&P 500 波动</div>
+</div>
+
+<div class="card">
+<div class="label">30天走势</div>
+<canvas id="chart" width="600" height="240"></canvas>
+<div class="legend">VIX ━━━　 VXN ━━━</div>
+</div>
+
+<div class="card">
+<div class="label">Market Summary</div>
+<div id="summary">读取数据中...</div>
+</div>
+
+<div class="update">
+数据自动读取自历史数据源<br>
+最后检查：<span id="time"></span>
+</div>
+
+</div>
+
+<script>
+async function loadData(){
+  const [vixRes,vxnRes]=await Promise.all([
+    fetch("data/vix.json?"+Date.now()),
+    fetch("data/vxn.json?"+Date.now())
+  ]);
+
+  const vix=await vixRes.json();
+  const vxn=await vxnRes.json();
+
+  const vv=Number(vix.latest.value);
+  const xn=Number(vxn.latest.value);
+
+  document.getElementById("vix").textContent=vv.toFixed(2);
+  document.getElementById("vxn").textContent=xn.toFixed(2);
+
+  document.getElementById("vixDate").textContent="数据日期："+vix.latest.date;
+  document.getElementById("vxnDate").textContent="数据日期："+vxn.latest.date;
+
+  document.getElementById("vixStatus").textContent=vixLevel(vv);
+  document.getElementById("vxnStatus").textContent=vxnLevel(xn);
+
+  document.getElementById("ratio").textContent=(xn/vv).toFixed(2);
+
+  if(vv>=30 || xn>=35){
+    document.getElementById("summary").textContent="🔴 市场波动明显升高，进入恐慌区域。";
+  }else if(vv>=20 || xn>=25){
+    document.getElementById("summary").textContent="🟠 市场波动正在升高，需要注意风险。";
+  }else{
+    document.getElementById("summary").textContent="🟢 市场目前处于相对平静状态。";
+  }
+
+  drawChart(vix.series,vxn.series);
+  document.getElementById("time").textContent=new Date().toLocaleString("zh-CN");
+}
+
+function vixLevel(v){
+  if(v<15)return "🟢 平静";
+  if(v<20)return "🟡 正常";
+  if(v<30)return "🟠 紧张";
+  return "🔴 恐慌";
+}
+
+function vxnLevel(v){
+  if(v<20)return "🟢 平静";
+  if(v<25)return "🟡 正常偏高";
+  if(v<35)return "🟠 紧张";
+  return "🔴 恐慌";
+}
+
+function drawChart(vix,vxn){
+  const c=document.getElementById("chart");
+  const ctx=c.getContext("2d");
+
+  const a=vix.slice(-30);
+  const b=vxn.slice(-30);
+  const n=Math.min(a.length,b.length);
+
+  if(!n)return;
+
+  const av=a.slice(-n).map(x=>Number(x.value));
+  const bv=b.slice(-n).map(x=>Number(x.value));
+
+  const all=av.concat(bv);
+  const min=Math.min(...all);
+  const max=Math.max(...all);
+  const pad=25;
+
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.strokeStyle="#334155";
+  ctx.lineWidth=1;
+
+  for(let i=0;i<4;i++){
+    const y=pad+i*(c.height-pad*2)/3;
+    ctx.beginPath();
+    ctx.moveTo(pad,y);
+    ctx.lineTo(c.width-pad,y);
+    ctx.stroke();
+  }
+
+  drawLine(av);
+  drawLine(bv);
+
+  function drawLine(values){
+    ctx.beginPath();
+    values.forEach((v,i)=>{
+      const x=pad+i*(c.width-pad*2)/(values.length-1||1);
+      const y=c.height-pad-(v-min)/(max-min||1)*(c.height-pad*2);
+      if(i===0)ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle=values===av?"#38bdf8":"#facc15";
+    ctx.lineWidth=3;
+    ctx.stroke();
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
