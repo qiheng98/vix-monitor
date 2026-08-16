@@ -191,5 +191,11 @@ loadData();
 /* 每5分钟自动检查一次 */
 setInterval(loadData, 5 * 60 * 1000);
 </script>
-</body>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js");
+  });
+}
+</script></body>
 </html>
