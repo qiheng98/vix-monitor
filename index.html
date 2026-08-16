@@ -30,6 +30,12 @@ button{border:0;border-radius:10px;padding:10px 14px;background:#26344d;color:wh
 <h1>VIX Monitor</h1>
 <div class="sub">VIX / VXN Market Monitor</div>
 
+<div class="card" id="riskCard">
+<div class="label">🚨 Market Risk</div>
+<div class="value" id="riskLevel">读取中...</div>
+<div class="status" id="riskText">正在分析市场波动...</div>
+</div>
+
 <div class="card">
 <div class="label">VIX</div>
 <div class="value" id="vix">--</div>
@@ -92,13 +98,25 @@ async function loadData(){
 
   document.getElementById("ratio").textContent=(xn/vv).toFixed(2);
 
-  if(vv>=30 || xn>=35){
-    document.getElementById("summary").textContent="🔴 市场波动明显升高，进入恐慌区域。";
-  }else if(vv>=20 || xn>=25){
-    document.getElementById("summary").textContent="🟠 市场波动正在升高，需要注意风险。";
-  }else{
-    document.getElementById("summary").textContent="🟢 市场目前处于相对平静状态。";
+  let risk = "🟢 低风险";
+  let riskText = "市场目前相对平静。";
+
+  if(vv >= 30 || xn >= 35){
+    risk = "🔴 高风险";
+    riskText = "市场波动非常高，风险明显上升。";
+  }else if(vv >= 20 || xn >= 25 || xn/vv >= 1.5){
+    risk = "🟠 中高风险";
+    riskText = "市场波动正在升高，需要注意风险。";
+  }else if(vv >= 15 || xn >= 20){
+    risk = "🟡 正常";
+    riskText = "市场存在一定波动，但仍属正常范围。";
   }
+
+  document.getElementById("riskLevel").textContent = risk;
+  document.getElementById("riskText").textContent = riskText;
+
+  document.getElementById("summary").textContent =
+    risk + " — " + riskText;
 
   drawChart(vix.series,vxn.series);
   document.getElementById("time").textContent=new Date().toLocaleString("zh-CN");
@@ -166,6 +184,9 @@ function drawChart(vix,vxn){
 }
 
 loadData();
+
+/* 每5分钟自动检查一次 */
+setInterval(loadData, 5 * 60 * 1000);
 </script>
 </body>
 </html>
