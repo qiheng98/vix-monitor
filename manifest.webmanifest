@@ -1,0 +1,11 @@
+{
+  "name": "VIX Monitor",
+  "short_name": "VIX Monitor",
+  "description": "VIX / VXN Market Monitor",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "lang": "zh-CN"
+}
